@@ -82,25 +82,39 @@ Streamlit App (Login → Input/Upload → Prediction → Report)
 ## 🏛️ Project Structure
 
 ```
-bootcamp-ace-26-team-10/
-├── app.py                      # Streamlit entry point
-├── pages/                      # Login, upload/predict, result pages
-├── src/
-│   ├── config.py
-│   ├── preprocessing.py         #   Missing values, encoding, scaling
-│   ├── train.py                 #   Model training
-│   ├── evaluate.py              #   Metrics & evaluation
-│   └── predict.py               #   Load model, run inference
-├── data/
-│   ├── Training_CKD_dataset.csv
-│   └── Testing_CKD_dataset.csv
-├── models/
-│   └── ckd_model.pkl
-├── notebooks/                   # EDA & experiments
-├── requirements.txt
-├── README.md                    # ← You are here
-└── PLAN.md                      # Sprint/technical plan
-```
+## 📁 Project Structure
+
+
+project/
+│
+├── app.py                          # Main Streamlit application
+├── train_model.py                  # Model training script
+├── requirements.txt                # Python dependencies
+├── README.md                       # Project documentation
+│
+├── model/
+│     └── kidney_model.pkl          # Trained model bundle (generated)
+│
+├── dataset/
+│     ├── Training_CKD_dataset.csv  # Training data (21,001 rows)
+│     └── Testing_CKD_dataset.csv   # Testing data
+│
+├── notebooks/
+│     ├── 01_Data_Cleaning.ipynb    # Data quality & cleaning
+│     ├── 02_EDA.ipynb              # Exploratory Data Analysis
+│     └── 03_Model_Training.ipynb   # Model training & evaluation
+│
+├── utils/
+│     ├── __init__.py
+│     ├── preprocessing.py          # Data loading, encoding, scaling
+│     └── prediction.py             # Model loading & inference
+│
+└── assets/
+      ├── confusion_matrix.png       # Generated after training
+      └── model_comparison.png       # Generated after training
+
+
+---       
 
 ---
 
