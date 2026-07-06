@@ -1,7 +1,7 @@
 # Sprint 1 - Scrum Documentation
 
 ## Project
-Chronic Kidney Disease (CKD) Risk Prediction using Machine Learning (Streamlit App)
+Chronic Kidney Disease (CKD) Risk Prediction using Machine Learning (Streamlit)
 
 **Sprint Duration:** 7 Days
 
