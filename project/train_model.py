@@ -34,7 +34,7 @@ os.makedirs(ASSETS_DIR, exist_ok=True)
 
 # ─── Add project root to sys.path ────────────────────────────────────────────
 sys.path.insert(0, BASE_DIR)
-from utils.preprocessing import preprocess_pipeline, check_data_quality, load_data
+from ckd_utils.preprocessing import preprocess_pipeline, check_data_quality, load_data
 
 
 def train_and_evaluate():
@@ -56,6 +56,12 @@ def train_and_evaluate():
     print("\n[2/5] Preprocessing ...")
     X_train, X_test, y_train, y_test, encoders, scaler, class_names = \
         preprocess_pipeline(TRAIN_PATH, TEST_PATH)
+    print("\n===== FEATURE CHECK =====")
+    print("Target column in X_train:", "Target" in X_train.columns)
+    print("Number of features:", len(X_train.columns))
+    print("Feature names:")
+    print(list(X_train.columns))
+    print("=========================\n")
 
     print(f"  Features : {X_train.shape[1]}")
     print(f"  Classes  : {class_names}")
