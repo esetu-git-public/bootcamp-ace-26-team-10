@@ -12,8 +12,9 @@ Chronic Kidney Disease (CKD) Risk Prediction using Machine Learning (Streamlit A
 | Day | Event | Team Lead | Scrum Master | Product Owner | Business Owner | Developer |
 |---|---|---|---|---|---|---|
 | Day 1 | Sprint Planning | Understood project objectives and scope | Conducted Sprint Planning meeting and coordinated team | Discussed project requirements and confirmed Risk Level classification scope | Submitted project requirements to the team | - |
-| Day 2 | Sprint Planning | Assigned tasks to all team members | Divided sprint into tasks and scheduled work | Prepared technical documentation (TRD) | Submitted technical documentation | - |
-| Day 3 | Sprint Execution | Monitored work progress and reviewed project folder structure | Created GitHub issues, monitored team progress, tracked task completion, and closed completed issues | Developed Login page UI (Streamlit) | Reviewed and validated Login page progress | Set up dataset loading and initial data cleaning script |
+| Day 2 | Sprint Planning | Assigned tasks to all team members | Divided sprint into tasks and scheduled work | Prepared Technical Requirement Document (TRD) | Submitted and reviewed technical documentation | - |
+| Day 3 | Sprint Execution | Monitored work progress and reviewed project folder structure | Created GitHub issues, monitored team progress, tracked task completion, and closed completed issues | Developed the Streamlit application interface and organized project pages | Reviewed and validated Streamlit application progress | Set up dataset loading and completed initial data preprocessing |
+| Day 4 | Sprint Execution | Reviewed sprint progress, coordinated integration activities, and resolved task dependencies | Conducted Daily Scrum, updated ClickUp/GitHub task status, monitored blockers, and tracked sprint progress | Integrated the trained machine learning model with the Streamlit application and improved the prediction interface | Reviewed integration progress, validated application workflow, and monitored testing activities | - |
 
 ---
 
