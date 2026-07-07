@@ -1,3 +1,4 @@
+
 # app.py
 # ─────────────────────────────────────────────────────────────────────────────
 # Chronic Kidney Disease Risk Prediction System – Streamlit Application
@@ -7,6 +8,7 @@
 import os
 import sys
 import warnings
+import datetime
 import numpy as np
 import pandas as pd
 import matplotlib
@@ -15,6 +17,7 @@ import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
 import seaborn as sns
 import streamlit as st
+from auth import create_users_table, register_user, login_user, logout_user, validate_email
 
 warnings.filterwarnings("ignore")
 
@@ -22,13 +25,9 @@ warnings.filterwarnings("ignore")
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, BASE_DIR)
 
-from utils.preprocessing import preprocess_single_input
-
-import utils.prediction as prediction
-
-# We'll call functions from `prediction` at runtime to avoid import-time issues
-
-
+from ckd_utils.prediction    import load_model_bundle, predict_single
+from ckd_utils.preprocessing import preprocess_single_input
+from ckd_utils.report_generator import generate_detailed_recommendations, create_pdf_report
 
 # ─── Paths ────────────────────────────────────────────────────────────────────
 MODEL_PATH  = os.path.join(BASE_DIR, "model", "kidney_model.pkl")
@@ -37,12 +36,12 @@ TEST_PATH   = os.path.join(BASE_DIR, "dataset", "Testing_CKD_dataset.csv")
 ASSETS_DIR  = os.path.join(BASE_DIR, "assets")
 
 # ─── Page config ─────────────────────────────────────────────────────────────
-"""st.set_page_config(
+st.set_page_config(
     page_title="CKD Risk Prediction System",
     page_icon="🫁",
     layout="wide",
     initial_sidebar_state="expanded",
-)"""
+)
 
 # ─── Custom CSS ──────────────────────────────────────────────────────────────
 st.markdown("""
@@ -134,19 +133,91 @@ p, li       { color: #a0aec0; }
 
 
 # ─────────────────────────────────────────────────────────────────────────────
+# Auth Initialization
+# ─────────────────────────────────────────────────────────────────────────────
+create_users_table()
+
+if "logged_in" not in st.session_state:
+    st.session_state["logged_in"] = False
+if "auth_page" not in st.session_state:
+    st.session_state["auth_page"] = "login"
+
+if not st.session_state["logged_in"]:
+    st.markdown("<h1 style='text-align: center; color: #e2e8f0; margin-top: 50px;'>🫁 CKD Risk System</h1>", unsafe_allow_html=True)
+    
+    if st.session_state["auth_page"] == "login":
+        st.markdown("<h3 style='text-align: center; color: #a0aec0;'>Login to Your Account</h3>", unsafe_allow_html=True)
+        col1, col2, col3 = st.columns([1, 2, 1])
+        with col2:
+            if "register_success" in st.session_state:
+                st.success(st.session_state["register_success"])
+                del st.session_state["register_success"]
+                
+            with st.form("login_form"):
+                username = st.text_input("Username")
+                password = st.text_input("Password", type="password")
+                submit = st.form_submit_button("Login", use_container_width=True)
+                
+                if submit:
+                    if not username or not password:
+                        st.error("Please enter both username and password.")
+                    elif login_user(username, password):
+                        st.session_state["logged_in"] = True
+                        st.session_state["username"] = username
+                        st.rerun()
+                    else:
+                        st.error("Invalid username or password.")
+            
+            st.markdown("<div style='text-align: center; margin-top: 10px;'>Don't have an account?</div>", unsafe_allow_html=True)
+            if st.button("Register Here", use_container_width=True):
+                st.session_state["auth_page"] = "register"
+                st.rerun()
+                
+    else:
+        st.markdown("<h3 style='text-align: center; color: #a0aec0;'>Create a New Account</h3>", unsafe_allow_html=True)
+        col1, col2, col3 = st.columns([1, 2, 1])
+        with col2:
+            with st.form("register_form"):
+                new_user = st.text_input("Username")
+                new_email = st.text_input("Email")
+                new_pwd = st.text_input("Password", type="password")
+                confirm_pwd = st.text_input("Confirm Password", type="password")
+                submit = st.form_submit_button("Register", use_container_width=True)
+                
+                if submit:
+                    if not new_user:
+                        st.error("Username is required.")
+                    elif not new_email or not validate_email(new_email):
+                        st.error("Please enter a valid email address.")
+                    elif len(new_pwd) < 8:
+                        st.error("Password must be at least 8 characters long.")
+                    elif new_pwd != confirm_pwd:
+                        st.error("Passwords do not match.")
+                    else:
+                        success, msg = register_user(new_user, new_email, new_pwd)
+                        if success:
+                            st.session_state["register_success"] = msg
+                            st.session_state["auth_page"] = "login"
+                            st.rerun()
+                        else:
+                            st.error(msg)
+            
+            st.markdown("<div style='text-align: center; margin-top: 10px;'>Already have an account?</div>", unsafe_allow_html=True)
+            if st.button("Back to Login", use_container_width=True):
+                st.session_state["auth_page"] = "login"
+                st.rerun()
+
+    st.stop()
+
+
+# ─────────────────────────────────────────────────────────────────────────────
 # Helpers
 # ─────────────────────────────────────────────────────────────────────────────
 
 @st.cache_resource(show_spinner="Loading model …")
 def get_bundle():
-    """Load and cache the trained model bundle using the prediction module at runtime."""
-    # Debug: log prediction module info to diagnose missing-attribute issues
-    try:
-        print("get_bundle: prediction file=", getattr(prediction, '__file__', None))
-        print("get_bundle: prediction attrs=", [a for a in dir(prediction) if 'load' in a or 'predict' in a])
-    except Exception as _:
-        print("get_bundle: unable to introspect prediction module")
-    return prediction.load_model_bundle(MODEL_PATH)
+    """Load and cache the trained model bundle."""
+    return load_model_bundle(MODEL_PATH)
 
 
 @st.cache_data(show_spinner="Loading datasets …")
@@ -232,6 +303,11 @@ with st.sidebar:
         Powered by Machine Learning<br>Scikit-learn · Streamlit
     </div>
     """, unsafe_allow_html=True)
+
+    st.markdown("<br>", unsafe_allow_html=True)
+    if st.button("🚪 Logout", use_container_width=True):
+        logout_user()
+        st.rerun()
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Load Resources (with graceful error handling)
@@ -635,7 +711,7 @@ elif page == "🔬  Prediction":
 
         try:
             input_df = preprocess_single_input(input_dict, bundle["encoders"], bundle["scaler"])
-            label, proba = prediction.predict_single(input_df, bundle)
+            label, proba = predict_single(input_df, bundle)
             emoji = stage_emoji(label)
             rec   = stage_recommendation(label)
 
@@ -651,8 +727,26 @@ elif page == "🔬  Prediction":
                 {conf_text}
             </div>""", unsafe_allow_html=True)
 
-            # Recommendation
-            st.info(f"**Clinical Recommendation:** {rec}")
+            # Detailed Recommendations
+            st.markdown("<div class='section-header'>💡 Personalized Health Recommendations</div>", unsafe_allow_html=True)
+            recs = generate_detailed_recommendations(input_dict, label)
+            for title, desc in recs:
+                st.info(f"**{title}:** {desc}")
+
+            # Generate PDF
+            conf_val = proba.max() * 100 if proba is not None else None
+            pdf_bytes = bytes(create_pdf_report(input_dict, label, conf_val, recs))
+            
+            st.markdown("<br>", unsafe_allow_html=True)
+            c1, c2, c3 = st.columns([1, 2, 1])
+            with c2:
+                st.download_button(
+                    label="📄 Download PDF Report",
+                    data=pdf_bytes,
+                    file_name=f"CKD_Report_{datetime.datetime.now().strftime('%Y%m%d')}.pdf",
+                    mime="application/pdf",
+                    use_container_width=True
+                )
 
             # Probability breakdown
             if proba is not None:
