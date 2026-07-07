@@ -16,7 +16,7 @@ import matplotlib.patches as mpatches
 import seaborn as sns
 import streamlit as st
 
-warnings.filterwarnings("ignore")
+warnings.filterwarnings()
 
 # ─── Ensure project root is on the path ──────────────────────────────────────
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
