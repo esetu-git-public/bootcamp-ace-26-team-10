@@ -16,7 +16,7 @@ import matplotlib.patches as mpatches
 import seaborn as sns
 import streamlit as st
 
-warnings.filterwarnings()
+warnings.filterwarnings("ignore")
 
 # ─── Ensure project root is on the path ──────────────────────────────────────
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -37,12 +37,12 @@ TEST_PATH   = os.path.join(BASE_DIR, "dataset", "Testing_CKD_dataset.csv")
 ASSETS_DIR  = os.path.join(BASE_DIR, "assets")
 
 # ─── Page config ─────────────────────────────────────────────────────────────
-st.set_page_config(
+"""st.set_page_config(
     page_title="CKD Risk Prediction System",
     page_icon="🫁",
     layout="wide",
     initial_sidebar_state="expanded",
-)
+)"""
 
 # ─── Custom CSS ──────────────────────────────────────────────────────────────
 st.markdown("""
