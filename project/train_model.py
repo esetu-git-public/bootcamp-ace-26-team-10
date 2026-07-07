@@ -3,7 +3,7 @@
 # Stand-alone script to train, evaluate, and save the best CKD classifier.
 # Run:  python train_model.py
 # ─────────────────────────────────────────────────────────────────────────────
-print("train_model.py started")
+
 import os
 import sys
 import time
@@ -123,22 +123,15 @@ def train_and_evaluate():
         "scaler":             scaler,
         "classes":            class_names,
         "features":           list(X_train.columns),
-        "metrics": {
-            "accuracy":       results[best_name]["accuracy"],
-            "precision":      results[best_name]["precision"],
-            "recall":         results[best_name]["recall"],
-            "f1_score":       results[best_name]["f1_score"],
-        },
-        "comparison_metrics": comparison_metrics,
-        "confusion_matrix":   cm,
-        "classification_report": report_str,
-        "class_distribution": train_raw["Target"].value_counts().to_dict(),
-        "feature_names":      list(X_train.columns),
-        "train_shape":        train_raw.shape,
-        "test_shape":         test_raw.shape,
+        
+        
     }
 
     joblib.dump(bundle, MODEL_PATH)
+    
+    joblib.load(MODEL_PATH)
+    print("Bundle loaded successfully!")
+
     print(f"  Saved → {MODEL_PATH}")
 
     # ── 5. Save Assets ────────────────────────────────────────────────────
