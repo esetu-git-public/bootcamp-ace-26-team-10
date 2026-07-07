@@ -34,7 +34,7 @@ def load_model_bundle(model_path: str = MODEL_PATH) -> dict:
     if not os.path.exists(model_path):
         raise FileNotFoundError(
             f"Model file not found at '{model_path}'. "
-            "Please run the training notebook (03_Model_Training.ipynb) first."
+            "Please run training notebook (03_Model_Training.ipynb) first."
         )
     bundle = joblib.load(model_path)
     return bundle
