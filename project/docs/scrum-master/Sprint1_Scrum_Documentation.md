@@ -43,13 +43,13 @@ Chronic Kidney Disease (CKD) Risk Prediction using Machine Learning (Streamlit A
 | Dataset Cleaning & EDA |✅ Completed   |
 | Preprocessing Pipeline |  ✅ Completed|
 | Model Training | ✅ Completed |
-| Upload/Predict Page UI | 🔄 In Progress  |
-| Model Integration | ⬜ Not Started |
+| Upload/Predict Page UI |  ✅ Completed   |
+| Model Integration | 🔄 In Progress|
 | Report Export (CSV/PDF) | ⬜ Not Started |
 | Final Testing | ⬜ Not Started |
 
-**Last Updated:** Day 3
+**Last Updated:** Day 4
 
 ---
 
-*This document is updated daily as the sprint progresses. Statuses above reflect the end of Day 3 — update rows for Days 4–7 as those tasks are completed.*
+*This document is updated daily as the sprint progresses. Statuses above reflect the end of Day 4 — update rows for Days 5–7 as those tasks are completed.*
