@@ -1,3 +1,9 @@
+
+# utils/preprocessing.py
+# ─────────────────────────────────────────────────────────────────
+# Handles all data loading, cleaning, encoding, and splitting tasks.
+# ─────────────────────────────────────────────────────────────────
+
 import pandas as pd
 import numpy as np
 from sklearn.preprocessing import LabelEncoder, StandardScaler
@@ -9,8 +15,23 @@ import os
 # ---------------------------------------------------------------------------
 TARGET_COL = "Target"
 
+# The 9 features used by the patient-friendly prediction model.
+# Height and Weight are NOT in the dataset; BMI is computed in the UI and
+# passed directly. This list must match the column names in the CSV exactly.
+SELECTED_FEATURES = [
+    "Age",
+    "Gender",
+    "BMI",
+    "Systolic_BP",
+    "Diastolic_BP",
+    "Diabetes",
+    "Hypertension",
+    "Smoking_Status",
+    
+]
+
 # Columns that are binary yes/no strings
-BINARY_COLS = ["Diabetes", "Hypertension", "Smoking_Status", "Family_History_Kidney"]
+BINARY_COLS = ["Diabetes", "Hypertension", "Smoking_Status"]
 
 # Columns that are numeric 0/1 in the dataset (Gender)
 NUMERIC_CAT_COLS = ["Gender"]
@@ -126,17 +147,19 @@ def scale_features(X_train: pd.DataFrame,
     return X_train_scaled, X_test_scaled, scaler
 
 
-def preprocess_pipeline(train_path: str, test_path: str):
+def preprocess_pipeline(train_df: pd.DataFrame, test_df: pd.DataFrame):
     """
     Full preprocessing pipeline used during model training.
+    Only the columns listed in SELECTED_FEATURES (plus the target) are kept.
 
     Returns
     -------
     X_train, X_test, y_train, y_test, encoders, scaler, class_names
     """
-    # Load
-    train_df = load_data(train_path)
-    test_df  = load_data(test_path)
+    # ── Keep only selected features + target ──────────────────────────────
+    keep_cols = SELECTED_FEATURES + [TARGET_COL]
+    train_df = train_df[[c for c in keep_cols if c in train_df.columns]].copy()
+    test_df  = test_df[[c for c in keep_cols if c in test_df.columns]].copy()
 
     # Drop duplicates
     train_df = train_df.drop_duplicates()
@@ -185,6 +208,7 @@ def preprocess_single_input(input_dict: dict, encoders: dict, scaler) -> pd.Data
     Parameters
     ----------
     input_dict : dict   Keys = feature column names, values = raw user inputs.
+                        Must contain exactly the keys in SELECTED_FEATURES.
     encoders   : dict   Fitted encoders from training.
     scaler              Fitted StandardScaler from training.
 
@@ -193,6 +217,9 @@ def preprocess_single_input(input_dict: dict, encoders: dict, scaler) -> pd.Data
     pd.DataFrame  (1 row, scaled)
     """
     row = pd.DataFrame([input_dict])
+
+    # Ensure column order matches training
+    row = row[SELECTED_FEATURES]
 
     # Encode binary columns
     for col in BINARY_COLS:
