@@ -1,90 +1,43 @@
-# bootcamp-ace-26-team-10
-Bootcamp by ACE students — Team 10
+# Chronic Kidney Disease Risk Prediction System
 
-# 🩺 Chronic Kidney Disease Prediction System
+An AI-powered clinical decision support web application that predicts the stage of Chronic Kidney Disease (CKD) using 35 clinical biomarkers and a trained machine learning model.
 
-## 📋 Objective
-Develop a Machine Learning–based web application to predict Chronic Kidney Disease stages using clinical parameters, with an interactive Streamlit interface for data entry, prediction, and reporting.
+Built by **ACE Bootcamp Team 10** as part of the GEN AI Bootcamp program.
 
 ---
 
-## 🧠 Overview
-This system takes patient clinical data — either entered manually or uploaded as a CSV — and predicts their CKD risk/stage using a trained classification model. The app includes user login, a prediction dashboard, and downloadable result reports.
+## 🫁 Overview
 
-**Domain:** Healthcare / Clinical Machine Learning
-**Bootcamp:** ACE Bootcamp — Team 10
+Chronic Kidney Disease (CKD) often goes undetected until advanced stages. This project provides an early-warning risk classification tool that predicts a patient's CKD stage based on routine clinical and lab data, enabling earlier intervention and better-informed care decisions.
 
 ---
 
-## 🛠️ Technologies
-- Python
-- Pandas
-- NumPy
-- Scikit-learn
-- Streamlit
+## ✨ Features
+
+- Streamlit web interface with dedicated pages for prediction, analytics, and education
+- 35-feature clinical input pipeline covering demographics, vitals, kidney function, electrolytes, blood panel, glucose/lipids, and risk factors
+- Four trained classifiers compared automatically, with the best model selected by weighted F1-score
+- Confidence score returned alongside each prediction
+- Auto-generated performance visualizations (confusion matrix, model comparison)
 
 ---
 
-## 📊 Dataset
-- `Training_CKD_dataset.csv`
-- `Testing_CKD_dataset.csv`
-- **Source:** [Chronic Kidney Disease (CKD) Clinical Dataset — Kaggle](https://www.kaggle.com/datasets/priyankabarik/chronic-kidney-disease-ckd-clinical-dataset)
+## 🛠️ Tech Stack
 
-| Detail | Value |
+| Layer | Technology |
 |---|---|
-| Target Variable | CKD Stage / Risk Level *(confirm exact class labels once finalized)* |
-| Number of Records | *(fill in once confirmed from the dataset)* |
-| Number of Features | *(fill in — clinical parameters such as Age, Blood Pressure, Serum Creatinine, eGFR, Hemoglobin, etc.)* |
-| Missing Values | *(note if the dataset required imputation)* |
-
-> 📌 **To finalize this section:** confirm the exact number of rows/features and the list of CKD stages/classes from your actual `Training_CKD_dataset.csv` once EDA is complete, and replace the placeholders above.
-
----
-
-## 🔬 Pipeline
-
-```
-Raw Dataset (Training_CKD_dataset.csv / Testing_CKD_dataset.csv)
-       │
-       ▼
-Data Cleaning (missing values, type fixes)
-       │
-       ▼
-Exploratory Data Analysis (EDA)
-       │
-       ▼
-Feature Engineering (encoding, scaling)
-       │
-       ▼
-Model Training (Logistic Regression / Random Forest)
-       │
-       ▼
-Model Evaluation (Accuracy, Precision, Recall, F1)
-       │
-       ▼
-Streamlit App (Login → Input/Upload → Prediction → Report)
-```
+| Frontend / UI | Streamlit |
+| Model Training | scikit-learn |
+| Model Serialization | joblib (`.pkl` bundle) |
+| Data | Kaggle CKD Dataset (21,001 training rows) |
+| Project Management | ClickUp |
+| Version Control | GitHub |
 
 ---
 
-## 🏋️ Model Performance
-| Metric | Value |
-|---|---|
-| Accuracy | *(add your final test-set accuracy)* |
-| Precision | *(add)* |
-| Recall | *(add)* |
-| F1 Score | *(add)* |
-
-> 📌 Replace with your real evaluation numbers once training is finalized — specific metrics make this section credible to reviewers.
-
----
-
-## 🏛️ Project Structure
-
-```
 ## 📁 Project Structure
 
-
+```
 project/
 │
 ├── app.py                          # Main Streamlit application
@@ -110,62 +63,153 @@ project/
 │     └── prediction.py             # Model loading & inference
 │
 └── assets/
-      ├── confusion_matrix.png       # Generated after training
-      └── model_comparison.png       # Generated after training
+      ├── confusion_matrix.png      # Generated after training
+      └── model_comparison.png      # Generated after training
+```
 
----       
+---
+
+## ⚙️ Installation
+
+1. **Clone the repository**
+   ```bash
+   git clone https://github.com/<org-or-username>/ckd-risk-prediction.git
+   cd ckd-risk-prediction
+   ```
+
+2. **Create a virtual environment**
+   ```bash
+   python -m venv venv
+   source venv/bin/activate      # On Windows: venv\Scripts\activate
+   ```
+
+3. **Install dependencies**
+   ```bash
+   pip install -r requirements.txt
+   ```
 
 ---
 
 ## 🚀 Quick Start
 
+### 1. Install Dependencies
 ```bash
-# 1. Clone the repository
-git clone https://github.com/<your-org-or-username>/bootcamp-ace-26-team-10.git
-cd bootcamp-ace-26-team-10
-
-# 2. Create and activate a virtual environment
-python -m venv venv
-venv\Scripts\activate        # Windows
-source venv/bin/activate     # Mac/Linux
-
-# 3. Install dependencies
 pip install -r requirements.txt
-
-# 4. Run the Streamlit app
-streamlit run app.py
-
-# 5. (Optional) Train the model from scratch
-python src/train.py
-python src/evaluate.py
 ```
 
-**Login Credentials (development/demo only):**
-Username: `admin`
-Password: `admin123`
-> ⚠️ Replace with real hashed credentials before sharing this publicly or submitting for evaluation.
+### 2. Train the Model
+```bash
+python train_model.py
+```
+This will:
+- Load and preprocess the training & testing datasets
+- Train 4 classifiers (Logistic Regression, Decision Tree, Random Forest, Gradient Boosting)
+- Select the best model by weighted F1-score
+- Save the model bundle to `model/kidney_model.pkl`
+- Generate performance charts in `assets/`
+
+### 3. Launch the Web App
+```bash
+streamlit run app.py
+```
 
 ---
 
-## 🌐 Deployment
-*(fill in if you deploy — e.g., Streamlit Community Cloud, Hugging Face Spaces)*
+## 🎯 Target Classes
 
-| Platform | Setup |
-|---|---|
-| Streamlit Community Cloud | Connect GitHub repo → deploy `app.py` |
-| Local only | `streamlit run app.py` |
+| Class | CKD Stage | eGFR Range |
+|-------|-----------|------------|
+| Healthy Kidney | — | ≥ 90 mL/min |
+| Mild CKD (Stage 1–2) | Stage 1–2 | 60–89 mL/min |
+| Moderate CKD (Stage 3) | Stage 3 | 30–59 mL/min |
+| Severe CKD (Stage 4) | Stage 4 | 15–29 mL/min |
+| Kidney Failure (Stage 5) | Stage 5 | < 15 mL/min |
+
+---
+
+## 🔬 Input Features (35 total)
+
+| Category | Features |
+|----------|---------|
+| Demographics | Age, Gender, BMI |
+| Vital Signs | Systolic BP, Diastolic BP, Heart Rate |
+| Kidney Function | Serum Creatinine, BUN, eGFR, Urine Albumin, Urine Protein, ACR, Urine Specific Gravity |
+| Electrolytes | Sodium, Potassium, Calcium, Phosphorus, Chloride, Bicarbonate |
+| Blood Panel | Hemoglobin, RBC Count, WBC Count, Platelet Count, Packed Cell Volume |
+| Glucose & Lipids | Blood Glucose Random, Fasting Glucose, HbA1c, Cholesterol, Triglycerides |
+| Serum Proteins | Serum Albumin, Total Protein |
+| Risk Factors | Diabetes, Hypertension, Smoking Status, Family History of Kidney Disease |
+
+---
+
+## 🤖 Machine Learning Models Trained
+
+- **Logistic Regression** – Baseline linear classifier
+- **Decision Tree** – Non-linear tree-based classifier
+- **Random Forest** – Ensemble bagging classifier ⭐ (typically best)
+- **Gradient Boosting** – Ensemble boosting classifier
+
+The best model is selected based on **weighted F1-score** on the test set.
+
+---
+
+## 📊 Evaluation Metrics
+
+- Accuracy
+- Precision (weighted)
+- Recall (weighted)
+- F1-Score (weighted)
+- Confusion Matrix
+- Full Classification Report (per-class)
+
+---
+
+## 🖥️ Web Application Pages
+
+| Page | Description |
+|------|-------------|
+| 🏠 Home | Overview, CKD stages, key stats, how it works |
+| 🔬 Prediction | Patient input form → CKD stage prediction + confidence |
+| 📊 Analytics | Dataset summary, class distribution, feature charts, confusion matrix |
+| ℹ️ About | CKD explanation, prediction workflow, algorithm details |
 
 ---
 
 ## 👥 Team — ACE Bootcamp Team 10
 
-| Role | Name |
+| Role | Responsibility |
 |---|---|
-| Scrum Master | Geetha |
-| Team Lead | D. Shravanthi |
-| Product Owner | K. Rohit |
-| Business Owner | E. Varun |
+| Team Lead | Oversees project execution, monitors progress and structure |
+| Scrum Master | Facilitates ceremonies, tracks sprint tasks and GitHub issues |
+| Product Owner | Defines requirements, builds core application features |
+| Business Owner | Provides requirements and validates deliverables |
+| Developer | Implements data pipeline, model training, and core logic |
 
 ---
 
-Built with ❤️ by **Team 10 — ACE Bootcamp**
+## 🤝 Contributing
+
+This is a bootcamp learning project. Team members should:
+1. Create a feature branch (`git checkout -b feature/your-feature`)
+2. Commit changes with clear messages
+3. Open a Pull Request for review before merging to `main`
+
+---
+
+## ⚠️ Medical Disclaimer
+
+This application is intended for **educational and research purposes only**.
+It is **not a substitute** for professional medical advice, diagnosis, or treatment.
+Always consult a qualified healthcare provider for medical decisions.
+
+---
+
+## 📄 License
+
+This project is developed for educational purposes as part of the GEN AI Bootcamp. Add a license here if you plan to open-source it (e.g., MIT License).
+
+---
+
+## 📬 Contact
+
+For questions about this project, reach out to the ACE Bootcamp Team 10 project channel.
