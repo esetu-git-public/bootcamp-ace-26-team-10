@@ -1,4 +1,4 @@
- #app.py
+# app.py
 # ─────────────────────────────────────────────────────────────────────────────
 # Chronic Kidney Disease Risk Prediction System – Streamlit Application
 # Run:  streamlit run app.py
@@ -56,32 +56,6 @@ from auth import (
     get_audit_logs,
     get_admin_metrics
 )
-
-try:
-    from auth import normalize_prediction_row
-except ImportError:
-    def normalize_prediction_row(row):
-        normalized = dict(row or {})
-        aliases = {
-            "Age": ("Age", "age"),
-            "Gender": ("Gender", "gender"),
-            "BMI": ("BMI", "bmi"),
-            "Diabetes": ("Diabetes", "diabetes"),
-            "Hypertension": ("Hypertension", "hypertension"),
-            "Family_History_Kidney": ("Family_History_Kidney", "family_history"),
-        }
-        for canonical, names in aliases.items():
-            value = None
-            for name in names:
-                if name in normalized:
-                    value = normalized[name]
-                    break
-            if value is not None:
-                normalized[canonical] = value
-                for name in names:
-                    if name != canonical:
-                        normalized[name] = value
-        return normalized
 
 warnings.filterwarnings("ignore")
 
@@ -1222,13 +1196,9 @@ versus the population average.
 
                     # ── PDF & Email ───────────────────────────────────────
                     st.markdown("<br>", unsafe_allow_html=True)
-                    pdf_result = create_pdf_report(
+                    pdf_bytes    = bytes(create_pdf_report(
                         input_dict, label, conf_val, recs,
-                        patient_name=patient_name.strip())
-                    if isinstance(pdf_result, str):
-                        pdf_bytes = pdf_result.encode("latin-1", errors="ignore")
-                    else:
-                        pdf_bytes = bytes(pdf_result)
+                        patient_name=patient_name.strip()))
                     pdf_filename = (
                         f"CKD_Report_{patient_name.strip().replace(' ','_')}_"
                         f"{datetime.datetime.now().strftime('%Y%m%d')}.pdf"
@@ -1419,28 +1389,27 @@ elif page == "📋  History":
         st.markdown("<br>", unsafe_allow_html=True)
         st.markdown("#### \U0001f5c2\ufe0f Detailed Records")
         for r in rows[:10]:
-            row = normalize_prediction_row(r)
-            emoji   = stage_emoji(row["prediction_label"])
-            s_color = stage_color_hex(row["prediction_label"])
-            with st.expander(f"{emoji}  {row['patient_name']} \u2014 {row['prediction_label']}  \u00b7  {row['created_at'][:16]}"):
+            emoji   = stage_emoji(r["prediction_label"])
+            s_color = stage_color_hex(r["prediction_label"])
+            with st.expander(f"{emoji}  {r['patient_name']} \u2014 {r['prediction_label']}  \u00b7  {r['created_at'][:16]}"):
                 d1, d2, d3 = st.columns(3)
-                d1.metric("Age",    row.get("Age", row.get("age", "N/A")))
-                d2.metric("Gender", row.get("Gender", row.get("gender", "N/A")))
-                d3.metric("BMI",    f"{row.get('BMI', row.get('bmi', 0)):.1f}")
+                d1.metric("Age",    r.get("Age", "N/A"))
+                d2.metric("Gender", "Male" if r.get("Gender") == 1 else "Female")
+                d3.metric("BMI",    f"{r.get('BMI', 0.0):.1f}")
                 d4, d5, d6 = st.columns(3)
-                d4.metric("Systolic BP", row.get("Systolic_BP", 0))
-                d5.metric("eGFR", row.get("eGFR", 0))
-                d6.metric("Serum Creatinine", row.get("Serum_Creatinine", 0))
+                d4.metric("Systolic BP", r.get("Systolic_BP", 0))
+                d5.metric("eGFR", r.get("eGFR", 0))
+                d6.metric("Serum Creatinine", r.get("Serum_Creatinine", 0))
                 d7, d8, d9 = st.columns(3)
-                d7.metric("Diabetes",     row.get("Diabetes", row.get("diabetes", "N/A")))
-                d8.metric("Hypertension", row.get("Hypertension", row.get("hypertension", "N/A")))
-                d9.metric("Family Hist.", row.get("Family_History_Kidney", row.get("family_history", "N/A")))
+                d7.metric("Diabetes",     r.get("Diabetes", "N/A"))
+                d8.metric("Hypertension", r.get("Hypertension", "N/A"))
+                d9.metric("Family Hist.", r.get("Family_History_Kidney", "N/A"))
                 st.markdown(f"""
                 <div style='margin-top:12px;padding:12px 20px;
                             background:rgba(49,130,206,0.1);border-radius:10px;
                             border-left:4px solid {s_color};'>
-                    <span style='color:{s_color};font-weight:700;font-size:1.1rem;'>{emoji} {row["prediction_label"]}</span>
-                    <span style='color:#a0aec0;font-size:0.9rem;margin-left:16px;'>Confidence: {row["confidence"]:.1f}%</span>
+                    <span style='color:{s_color};font-weight:700;font-size:1.1rem;'>{emoji} {r["prediction_label"]}</span>
+                    <span style='color:#a0aec0;font-size:0.9rem;margin-left:16px;'>Confidence: {r["confidence"]:.1f}%</span>
                 </div>""", unsafe_allow_html=True)
 
 

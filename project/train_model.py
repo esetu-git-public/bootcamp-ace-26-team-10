@@ -21,6 +21,7 @@ from sklearn.tree             import DecisionTreeClassifier
 from sklearn.ensemble         import RandomForestClassifier, GradientBoostingClassifier
 from sklearn.metrics          import (accuracy_score, precision_score, recall_score,
                                       f1_score, confusion_matrix, classification_report)
+from sklearn.model_selection  import train_test_split, cross_val_score
 
 warnings.filterwarnings("ignore")
 
@@ -34,7 +35,7 @@ os.makedirs(ASSETS_DIR, exist_ok=True)
 
 # ─── Add project root to sys.path ────────────────────────────────────────────
 sys.path.insert(0, BASE_DIR)
-from utils.preprocessing import preprocess_pipeline, check_data_quality, load_data
+from ckd_utils.preprocessing import preprocess_pipeline, check_data_quality, load_data
 
 
 def train_and_evaluate():
@@ -47,7 +48,12 @@ def train_and_evaluate():
     train_raw = load_data(TRAIN_PATH)
     test_raw  = load_data(TEST_PATH)
 
-    q = check_data_quality(train_raw)
+    full_data = pd.concat([train_raw, test_raw], ignore_index=True)
+    train_split, test_split = train_test_split(
+        full_data, test_size=0.2, random_state=42, stratify=full_data["Target"]
+    )
+
+    q = check_data_quality(train_split)
     print(f"  Training set  : {q['shape'][0]:,} rows × {q['shape'][1]} cols")
     print(f"  Missing values: {q['total_missing']}")
     print(f"  Duplicate rows: {q['duplicate_rows']}")
@@ -55,17 +61,24 @@ def train_and_evaluate():
     # ── 2. Full Preprocessing ─────────────────────────────────────────────
     print("\n[2/5] Preprocessing ...")
     X_train, X_test, y_train, y_test, encoders, scaler, class_names = \
-        preprocess_pipeline(TRAIN_PATH, TEST_PATH)
+        preprocess_pipeline(train_split, test_split)
 
-    print(f"  Features : {X_train.shape[1]}")
+    print("\n===== FEATURE CHECK =====")
+    print(f"Target column in X_train: {'Target' in X_train.columns}")
+    print(f"Number of features: {X_train.shape[1]}")
+    print("Feature names:")
+    for col in X_train.columns:
+        print(f"  - {col}")
+    print()
+
     print(f"  Classes  : {class_names}")
 
     # ── 3. Define Models ──────────────────────────────────────────────────
     print("\n[3/5] Training classifiers ...")
     models = {
         "Logistic Regression":  LogisticRegression(max_iter=500, random_state=42, n_jobs=-1),
-        "Decision Tree":        DecisionTreeClassifier(max_depth=10, random_state=42),
         "Random Forest":        RandomForestClassifier(n_estimators=100, random_state=42, n_jobs=-1),
+        "Decision Tree":        DecisionTreeClassifier(max_depth=10, random_state=42),
         "Gradient Boosting":    GradientBoostingClassifier(n_estimators=100, random_state=42),
     }
 
@@ -93,7 +106,7 @@ def train_and_evaluate():
             "y_pred":    y_pred,
             "time_s":    round(time.time() - t0, 2),
         }
-        print(f"  {name:<25}  Acc={acc:.4f}  F1={f1:.4f}  ({results[name]['time_s']}s)")
+        print(f"  {name:<25}  Acc={acc:.4f}  Prec={prec:.4f}  Rec={rec:.4f}  F1={f1:.4f}  ({results[name]['time_s']}s)")
 
         if f1 > best_f1:
             best_f1    = f1
@@ -102,6 +115,22 @@ def train_and_evaluate():
 
     # ── 4. Save Best Model Bundle ─────────────────────────────────────────
     print(f"\n[4/5] Best model -> {best_name}  (F1={best_f1:.4f})")
+
+    print("\nRunning 5-Fold Cross Validation...")
+    cv_scores = cross_val_score(
+        best_model,
+        X_train,
+        y_train,
+        cv=5,
+        scoring="accuracy",
+        n_jobs=-1
+    )
+
+    print("\nCross Validation Scores:")
+    print(cv_scores)
+
+    print(f"\nAverage CV Accuracy : {cv_scores.mean():.4f}")
+    print(f"Standard Deviation  : {cv_scores.std():.4f}\n")
 
     # Build comparison metrics (exclude model/y_pred objects)
     comparison_metrics = {
@@ -123,19 +152,29 @@ def train_and_evaluate():
         "scaler":             scaler,
         "classes":            class_names,
         "features":           list(X_train.columns),
-        
-        
+        "cv_scores":          cv_scores.tolist(),
+        "cv_mean_accuracy":   float(cv_scores.mean()),
+        "cv_std_accuracy":    float(cv_scores.std()),
+        "metrics": {
+            "accuracy":       results[best_name]["accuracy"],
+            "precision":      results[best_name]["precision"],
+            "recall":         results[best_name]["recall"],
+            "f1_score":       results[best_name]["f1_score"],
+        },
+        "comparison_metrics": comparison_metrics,
+        "confusion_matrix":   cm,
+        "classification_report": report_str,
+        "class_distribution": train_split["Target"].value_counts().to_dict(),
+        "feature_names":      list(X_train.columns),
+        "train_shape":        train_split.shape,
+        "test_shape":         test_split.shape,
     }
 
     joblib.dump(bundle, MODEL_PATH)
-    
-    joblib.load(MODEL_PATH)
-    print("Bundle loaded successfully!")
-
-    print(f"  Saved → {MODEL_PATH}")
+    print(f"  Saved -> {MODEL_PATH}")
 
     # ── 5. Save Assets ────────────────────────────────────────────────────
-    print("\n[5/5] Generating plots …")
+    print("\n[5/5] Generating plots...")
 
     # Confusion Matrix
     fig, ax = plt.subplots(figsize=(8, 6))
@@ -148,7 +187,7 @@ def train_and_evaluate():
     cm_path = os.path.join(ASSETS_DIR, "confusion_matrix.png")
     fig.savefig(cm_path, dpi=150)
     plt.close(fig)
-    print(f"  Confusion matrix → {cm_path}")
+    print(f"  Confusion matrix -> {cm_path}")
 
     # Model Comparison Bar Chart
     metric_df = pd.DataFrame(
@@ -166,7 +205,24 @@ def train_and_evaluate():
     comp_path = os.path.join(ASSETS_DIR, "model_comparison.png")
     fig.savefig(comp_path, dpi=150)
     plt.close(fig)
-    print(f"  Model comparison → {comp_path}")
+    print(f"  Model comparison -> {comp_path}")
+
+    # Feature Importance (if applicable)
+    if hasattr(best_model, "feature_importances_"):
+        importances = best_model.feature_importances_
+        indices = np.argsort(importances)[::-1][:15] # Top 15
+        top_features = [list(X_train.columns)[i] for i in indices]
+        top_importances = importances[indices]
+        
+        fig, ax = plt.subplots(figsize=(10, 6))
+        sns.barplot(x=top_importances, y=top_features, ax=ax, palette="viridis")
+        ax.set_title("Top 15 Feature Importances", fontsize=13, fontweight="bold")
+        ax.set_xlabel("Importance Score")
+        plt.tight_layout()
+        fi_path = os.path.join(ASSETS_DIR, "feature_importance.png")
+        fig.savefig(fi_path, dpi=150)
+        plt.close(fig)
+        print(f"  Feature importance -> {fi_path}")
 
     print("\n" + "=" * 70)
     print("  Training complete!")
