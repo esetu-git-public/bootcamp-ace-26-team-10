@@ -1,4 +1,3 @@
-
 # utils/preprocessing.py
 # ─────────────────────────────────────────────────────────────────
 # Handles all data loading, cleaning, encoding, and splitting tasks.
@@ -15,23 +14,22 @@ import os
 # ---------------------------------------------------------------------------
 TARGET_COL = "Target"
 
-# The 9 features used by the patient-friendly prediction model.
+# The 35 features used by the patient-friendly prediction model.
 # Height and Weight are NOT in the dataset; BMI is computed in the UI and
 # passed directly. This list must match the column names in the CSV exactly.
 SELECTED_FEATURES = [
-    "Age",
-    "Gender",
-    "BMI",
-    "Systolic_BP",
-    "Diastolic_BP",
-    "Diabetes",
-    "Hypertension",
-    "Smoking_Status",
-    
+    "Age", "Gender", "BMI", "Systolic_BP", "Diastolic_BP", "Heart_Rate",
+    "Serum_Creatinine", "Blood_Urea_Nitrogen", "eGFR", "Urine_Specific_Gravity",
+    "Urine_Albumin", "Urine_Protein", "Albumin_Creatinine_Ratio",
+    "Sodium", "Potassium", "Calcium", "Phosphorus", "Chloride", "Bicarbonate",
+    "Hemoglobin", "RBC_Count", "WBC_Count", "Platelet_Count", "Packed_Cell_Volume",
+    "Blood_Glucose_Random", "Fasting_Glucose", "HbA1c", "Cholesterol",
+    "Triglycerides", "Serum_Albumin", "Total_Protein", "Diabetes",
+    "Hypertension", "Smoking_Status", "Family_History_Kidney"
 ]
 
 # Columns that are binary yes/no strings
-BINARY_COLS = ["Diabetes", "Hypertension", "Smoking_Status"]
+BINARY_COLS = ["Diabetes", "Hypertension", "Family_History_Kidney", "Smoking_Status"]
 
 # Columns that are numeric 0/1 in the dataset (Gender)
 NUMERIC_CAT_COLS = ["Gender"]
