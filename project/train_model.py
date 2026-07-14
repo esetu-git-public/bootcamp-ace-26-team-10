@@ -1,5 +1,4 @@
-<<<<<<<<< Temporary merge branch 1
-=========
+
  #train_model.py
 # ─────────────────────────────────────────────────────────────────────────────
 # Stand-alone script to train, evaluate, and save the best CKD classifier.
@@ -233,4 +232,4 @@ def train_and_evaluate():
 
 if __name__ == "__main__":
     train_and_evaluate()
->>>>>>>>> Temporary merge branch 2
+

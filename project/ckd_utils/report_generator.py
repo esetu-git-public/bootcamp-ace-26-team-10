@@ -206,7 +206,7 @@ class PDFReport(FPDF):
         # Title text
         self.set_text_color(255, 255, 255)
         self.set_font("helvetica", "B", 16)
-        self.cell(0, 8, safe_text(self.hospital_name), new_x="LMARGIN", new_y="NEXT", align="L")
+        self.cell(0, 8, safe_text(self.hospital_name), align="L", ln=1)
         
         if self.logo_path and os.path.exists(self.logo_path):
             self.set_x(42)
@@ -214,7 +214,7 @@ class PDFReport(FPDF):
             self.set_x(15)
         self.set_font("helvetica", "B", 9)
         self.set_text_color(173, 181, 189)
-        self.cell(0, 4, "CLINICAL DECISION SUPPORT SYSTEM - ASSESSMENT REPORT", new_x="LMARGIN", new_y="NEXT", align="L")
+        self.cell(0, 4, "CLINICAL DECISION SUPPORT SYSTEM - ASSESSMENT REPORT", align="L", ln=1)
         
         self.set_y(48)
 
@@ -248,13 +248,13 @@ def create_pdf_report(input_dict, label, conf, recommendations, patient_name="N/
     pdf.set_font("helvetica", "", 9)
     pdf.set_text_color(113, 128, 150)
     current_date = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    pdf.cell(0, 6, f"Report Generated: {current_date}", align="R", new_x="LMARGIN", new_y="NEXT")
+    pdf.cell(0, 6, f"Report Generated: {current_date}", align="R", ln=1)
     pdf.ln(4)
 
     # 1. Patient Profile & Clinical Markers Grid
     pdf.set_font("helvetica", "B", 12)
     pdf.set_text_color(26, 54, 93)
-    pdf.cell(0, 8, "1. Patient Profile & Clinical Indicators", new_x="LMARGIN", new_y="NEXT")
+    pdf.cell(0, 8, "1. Patient Profile & Clinical Indicators", ln=1)
     pdf.set_draw_color(226, 232, 240)
     pdf.line(15, pdf.get_y(), 195, pdf.get_y())
     pdf.ln(3)
@@ -281,7 +281,7 @@ def create_pdf_report(input_dict, label, conf, recommendations, patient_name="N/
         pdf.set_font("helvetica", "B", 9)
         pdf.cell(45, 8, safe_text(label2), border=1, fill=True)
         pdf.set_font("helvetica", "", 9)
-        pdf.cell(45, 8, safe_text(str(val2)), border=1, new_x="LMARGIN", new_y="NEXT")
+        pdf.cell(45, 8, safe_text(str(val2)), border=1, ln=1)
 
     draw_row("Patient Name", patient_name, "Date of Report", datetime.datetime.now().strftime("%Y-%m-%d"))
     draw_row("Age", f"{input_dict.get('Age')} years", "Gender", gender_str)
@@ -295,7 +295,7 @@ def create_pdf_report(input_dict, label, conf, recommendations, patient_name="N/
     # 2. Prediction Result Banner
     pdf.set_font("helvetica", "B", 12)
     pdf.set_text_color(26, 54, 93)
-    pdf.cell(0, 8, "2. Diagnostic Risk Assessment", new_x="LMARGIN", new_y="NEXT")
+    pdf.cell(0, 8, "2. Diagnostic Risk Assessment", ln=1)
     pdf.line(15, pdf.get_y(), 195, pdf.get_y())
     pdf.ln(4)
 
@@ -325,13 +325,13 @@ def create_pdf_report(input_dict, label, conf, recommendations, patient_name="N/
         res_text += f"   |   MODEL CONFIDENCE: {conf:.1f}%"
 
     pdf.set_font("helvetica", "B", 11)
-    pdf.cell(0, 14, res_text, border=1, align="C", fill=True, new_x="LMARGIN", new_y="NEXT")
+    pdf.cell(0, 14, res_text, border=1, align="C", fill=True, ln=1)
     pdf.ln(6)
 
     # 3. Recommendations (Numbered Sections)
     pdf.set_font("helvetica", "B", 12)
     pdf.set_text_color(26, 54, 93)
-    pdf.cell(0, 8, "3. Personalized Care Guidelines", new_x="LMARGIN", new_y="NEXT")
+    pdf.cell(0, 8, "3. Personalized Care Guidelines", ln=1)
     pdf.set_draw_color(226, 232, 240)
     pdf.line(15, pdf.get_y(), 195, pdf.get_y())
     pdf.ln(3)
@@ -339,11 +339,11 @@ def create_pdf_report(input_dict, label, conf, recommendations, patient_name="N/
     for title, desc in recommendations:
         pdf.set_font("helvetica", "B", 10)
         pdf.set_text_color(43, 108, 176)
-        pdf.cell(0, 6, safe_text(str(title)), new_x="LMARGIN", new_y="NEXT")
+        pdf.cell(0, 6, safe_text(str(title)), ln=1)
 
         pdf.set_font("helvetica", "", 9.5)
         pdf.set_text_color(74, 85, 104)
-        pdf.multi_cell(0, 5, safe_text(str(desc)), new_x="LMARGIN", new_y="NEXT")
+        pdf.multi_cell(0, 5, safe_text(str(desc)))
         pdf.ln(3.5)
 
     # 4. Disclaimer Box
@@ -360,6 +360,6 @@ def create_pdf_report(input_dict, label, conf, recommendations, patient_name="N/
         "nephrologist or medical practitioner for formal diagnosis, professional medical advice, and before "
         "making any healthcare decisions."
     )
-    pdf.multi_cell(0, 4.5, safe_text(disclaimer_text), border=1, fill=True, new_x="LMARGIN", new_y="NEXT")
+    pdf.multi_cell(0, 4.5, safe_text(disclaimer_text), border=1, fill=True)
 
-    return pdf.output()
+    return pdf.output(dest="S").encode("latin-1")
