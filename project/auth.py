@@ -1,10 +1,12 @@
+import os
 import sqlite3
 import hashlib
 import re
 import streamlit as st
 import datetime
 
-DB_FILE = "users.db"
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+DB_FILE = os.path.join(BASE_DIR, "users.db")
 
 def init_db():
     create_users_table()
@@ -338,8 +340,12 @@ def submit_feedback(username, rating, comments, prediction_id=None):
                 INSERT INTO feedback (username, prediction_id, rating, comments, created_at)
                 VALUES (?, ?, ?, ?, ?)
             ''', (username, prediction_id, rating, comments, created_at))
+            conn.commit()
         log_audit_action(username, "Submit Feedback", f"Rated prediction: {rating} stars")
         return True
+    except Exception:
+        conn.rollback()
+        raise
     finally:
         conn.close()
 

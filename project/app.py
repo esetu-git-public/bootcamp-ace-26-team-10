@@ -119,8 +119,8 @@ ASSETS_DIR = os.path.join(BASE_DIR, "assets")
 
 # ─── Page config ─────────────────────────────────────────────────────────────
 st.set_page_config(
-    page_title="CKD Risk Prediction System",
-    page_icon="🫁",
+    page_title="Chronic Kidney Disease Risk Prediction System",
+    page_icon="🩺",
     layout="wide",
     initial_sidebar_state="expanded",
 )
@@ -128,6 +128,9 @@ st.set_page_config(
 # ─── Theme setup ─────────────────────────────────────────────────────────────
 if "theme" not in st.session_state:
     st.session_state["theme"] = "Dark Theme"
+
+if "last_prediction_id" not in st.session_state:
+    st.session_state["last_prediction_id"] = None
 
 theme_mode = st.session_state["theme"]
 
@@ -276,7 +279,7 @@ if "auth_page" not in st.session_state:
     st.session_state["auth_page"] = "login"
 
 if not st.session_state["logged_in"]:
-    st.markdown("<h1 style='text-align:center;color:#e2e8f0;margin-top:50px;'>🫁 CKD Risk System</h1>",
+    st.markdown("<h1 style='text-align:center;color:#e2e8f0;margin-top:50px;'>Chronic Kidney Disease Risk Prediction System</h1>",
                 unsafe_allow_html=True)
 
     if st.session_state["auth_page"] == "login":
@@ -715,7 +718,7 @@ section[data-testid="stSidebar"] { display: none !important; }
     # Top Navigation visually simulated
     st.markdown("""
     <div class="nav-bar">
-        <div class="nav-logo">🩺 CKD Predictor</div>
+        <div class="nav-logo">🩺 Chronic Kidney Disease Predictor</div>
     </div>
     
     <!-- Background glowing orbs -->
@@ -731,7 +734,7 @@ section[data-testid="stSidebar"] { display: none !important; }
         st.markdown("""
 <div class="hero-content">
     <div class="badge">Advanced Clinical Diagnostics</div>
-    <h1 class="hero-title">Predict Kidney Disease with <span>AI Precision</span></h1>
+    <h1 class="hero-title">Predict Kidney Disease with <span>AI </span></h1>
     <p class="hero-subtitle">
         Empowering healthcare professionals with state-of-the-art machine learning models to detect Chronic Kidney Disease early, safely, and interpretably.
     </p>
@@ -1237,7 +1240,12 @@ versus the population average.
                         comments = st.text_area("Additional Feedback", placeholder="How accurate is this prediction based on clinical judgement?")
                         fb_submitted = st.form_submit_button("Submit Feedback", width='stretch')
                         if fb_submitted:
-                            submit_feedback(username, rating, comments, pred_id)
+                            submit_feedback(
+                                username,
+                                rating,
+                                comments,
+                                st.session_state.get("last_prediction_id"),
+                            )
                             st.success("Thank you for your feedback! It has been recorded for model auditing.")
 
                 except Exception as ex:

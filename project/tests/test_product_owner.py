@@ -1,33 +1,46 @@
-# tests/test_team_leader.py
+# tests/test_product_owner.py
 # ─────────────────────────────────────────────────────────────────────────────
-# TDD — Team Leader Responsibilities
-#   • ML Model Training / Validation
-#   • Data Preprocessing  (BMI formula)
-#   • CKD Prediction      (predict_single, load_model_bundle)
-#   • Explainable AI      (explain_prediction_local)
+# TDD — Product Owner Responsibilities
+#   • User Registration
+#   • Login
+#   • Email Validation
+#   • Password Hashing
+#   • Prediction History
+#   • User Acceptance Test Cases
 #
-# Run:  python -m pytest tests/test_team_leader.py -v
+# Run:  python -m pytest tests/test_product_owner.py -v
 # ─────────────────────────────────────────────────────────────────────────────
 
 import os
 import sys
+import gc
+import time
+import tempfile
 import unittest
-import numpy as np
-import pandas as pd
 
 # ── Add project root to path ──────────────────────────────────────────────────
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, BASE_DIR)
 
-from ckd_utils.prediction import load_model_bundle, predict_single, explain_prediction_local
-from ckd_utils.preprocessing import preprocess_single_input
+from auth import (
+    init_db,
+    register_user,
+    login_user,
+    validate_email,
+    save_prediction,
+    get_predictions,
+    hash_password,
+)
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Shared helpers
 # ─────────────────────────────────────────────────────────────────────────────
 
-MODEL_PATH = os.path.join(BASE_DIR, "model", "kidney_model.pkl")
-MODEL_AVAILABLE = os.path.exists(MODEL_PATH)
+def _make_temp_db():
+    """Return a path to a fresh temporary SQLite database."""
+    fd, path = tempfile.mkstemp(suffix=".db")
+    os.close(fd)
+    return path
 
 
 def _make_sample_input():
@@ -71,153 +84,161 @@ def _make_sample_input():
 
 
 # ═════════════════════════════════════════════════════════════════════════════
-# 1. Data Preprocessing — BMI Computation
+# 1. Authentication — User Registration, Login, Email Validation,
+#    Password Hashing (User Acceptance Tests)
 # ═════════════════════════════════════════════════════════════════════════════
 
-class TestBMI(unittest.TestCase):
-    """Validates the BMI formula used during feature engineering."""
+class TestAuth(unittest.TestCase):
 
-    def _bmi(self, weight_kg, height_cm):
-        return weight_kg / ((height_cm / 100) ** 2)
+    def setUp(self):
+        """Use a temp DB so tests don't pollute the real users.db."""
+        import auth as auth_module
+        self.orig_db = auth_module.DB_FILE
+        self.temp_db = _make_temp_db()
+        auth_module.DB_FILE = self.temp_db
+        auth_module.init_db()
 
-    def test_bmi_normal(self):
-        bmi = self._bmi(70, 175)
-        self.assertAlmostEqual(bmi, 22.86, places=1)
+    def tearDown(self):
+        import auth as auth_module
+        auth_module.DB_FILE = self.orig_db
+        gc.collect()
+        try:
+            os.unlink(self.temp_db)
+        except PermissionError:
+            pass  # Windows: file will be cleaned up by OS on process exit
 
-    def test_bmi_obese(self):
-        bmi = self._bmi(100, 170)
-        self.assertGreater(bmi, 30.0)
+    # ── Email Validation ──────────────────────────────────────────────────────
+    def test_validate_email_valid(self):
+        self.assertTrue(validate_email("user@example.com"))
 
-    def test_bmi_underweight(self):
-        bmi = self._bmi(45, 170)
-        self.assertLess(bmi, 18.5)
+    def test_validate_email_valid_subdomain(self):
+        self.assertTrue(validate_email("user@mail.example.co.uk"))
 
-    def test_bmi_overweight(self):
-        bmi = self._bmi(80, 170)
-        self.assertGreater(bmi, 25.0)
-        self.assertLess(bmi, 30.0)
+    def test_validate_email_no_at(self):
+        self.assertFalse(validate_email("userexample.com"))
 
-    def test_bmi_formula_correctness(self):
-        bmi = self._bmi(60, 160)
-        expected = 60 / (1.6 ** 2)
-        self.assertAlmostEqual(bmi, expected, places=5)
+    def test_validate_email_no_domain(self):
+        self.assertFalse(validate_email("user@"))
+
+    def test_validate_email_empty(self):
+        self.assertFalse(validate_email(""))
+
+    # ── User Registration ─────────────────────────────────────────────────────
+    def test_register_user_success(self):
+        ok, msg = register_user("alice", "alice@test.com", "Secret1234")
+        self.assertTrue(ok)
+        self.assertIn("successful", msg.lower())
+
+    def test_register_duplicate_username(self):
+        register_user("bob", "bob@test.com", "Pass1234!")
+        ok, msg = register_user("bob", "bob2@test.com", "Pass1234!")
+        self.assertFalse(ok)
+        self.assertIn("username", msg.lower())
+
+    def test_register_duplicate_email(self):
+        register_user("carol", "carol@test.com", "Pass1234!")
+        ok, msg = register_user("carol2", "carol@test.com", "Pass1234!")
+        self.assertFalse(ok)
+        self.assertIn("email", msg.lower())
+
+    # ── Login ─────────────────────────────────────────────────────────────────
+    def test_login_correct_credentials(self):
+        register_user("dave", "dave@test.com", "MyPass999!")
+        self.assertTrue(login_user("dave", "MyPass999!"))
+
+    def test_login_wrong_password(self):
+        register_user("eve", "eve@test.com", "Correct123!")
+        self.assertFalse(login_user("eve", "WrongPass!"))
+
+    def test_login_unknown_user(self):
+        self.assertFalse(login_user("ghost", "anything"))
+
+    # ── Password Hashing ──────────────────────────────────────────────────────
+    def test_password_is_hashed(self):
+        h = hash_password("mypassword")
+        self.assertNotEqual(h, "mypassword")
+        self.assertEqual(len(h), 64)  # SHA-256 hex digest length
+
+    def test_password_hash_deterministic(self):
+        h1 = hash_password("same_password")
+        h2 = hash_password("same_password")
+        self.assertEqual(h1, h2)
 
 
 # ═════════════════════════════════════════════════════════════════════════════
-# 2. CKD Prediction & Explainable AI (requires trained model)
+# 2. Prediction History (User Acceptance Tests)
 # ═════════════════════════════════════════════════════════════════════════════
 
-@unittest.skipUnless(MODEL_AVAILABLE, "Model file not found – run train_model.py first")
-class TestPrediction(unittest.TestCase):
-    """Tests for model loading, single prediction, preprocessing, and XAI."""
+class TestPredictionHistory(unittest.TestCase):
 
-    @classmethod
-    def setUpClass(cls):
-        cls.bundle = load_model_bundle(MODEL_PATH)
+    def setUp(self):
+        import auth as auth_module
+        self.orig_db = auth_module.DB_FILE
+        self.temp_db = _make_temp_db()
+        auth_module.DB_FILE = self.temp_db
+        auth_module.init_db()
 
-    def _preprocess(self, d=None):
-        if d is None:
-            d = _make_sample_input()
-        return preprocess_single_input(d, self.bundle["encoders"], self.bundle["scaler"])
+    def tearDown(self):
+        import auth as auth_module
+        auth_module.DB_FILE = self.orig_db
+        gc.collect()
+        try:
+            os.unlink(self.temp_db)
+        except PermissionError:
+            pass  # Windows file lock fallback
 
-    # ── load_model_bundle ─────────────────────────────────────────────────────
-    def test_bundle_has_required_keys(self):
-        for key in ("model", "encoders", "scaler", "classes", "features"):
-            self.assertIn(key, self.bundle)
+    def _save_one(self, patient_name="John Doe", label="Healthy Kidney", conf=98.5):
+        save_prediction(
+            username         = "testuser",
+            patient_name     = patient_name,
+            prediction_label = label,
+            confidence       = conf,
+            features_dict    = _make_sample_input(),
+        )
 
-    def test_classes_is_list(self):
-        self.assertIsInstance(self.bundle["classes"], (list, np.ndarray))
+    def test_save_and_retrieve(self):
+        self._save_one()
+        rows = get_predictions("testuser")
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0]["patient_name"], "John Doe")
 
-    def test_features_count(self):
-        """Model bundle must expose exactly 35 features."""
-        self.assertEqual(len(self.bundle["features"]), 35)
+    def test_retrieve_empty_for_other_user(self):
+        self._save_one()
+        rows = get_predictions("otheruser")
+        self.assertEqual(len(rows), 0)
 
-    # ── predict_single ────────────────────────────────────────────────────────
-    def test_predict_single_returns_label_and_proba(self):
-        input_df = self._preprocess()
-        label, proba = predict_single(input_df, self.bundle)
-        self.assertIsInstance(label, str)
-        self.assertIn(label, list(self.bundle["classes"]))
+    def test_search_by_patient_name(self):
+        self._save_one("Alice Smith")
+        self._save_one("Bob Jones")
+        rows = get_predictions("testuser", search_query="Alice")
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0]["patient_name"], "Alice Smith")
 
-    def test_predict_single_proba_sums_to_one(self):
-        input_df = self._preprocess()
-        _, proba = predict_single(input_df, self.bundle)
-        if proba is not None:
-            self.assertAlmostEqual(float(proba.sum()), 1.0, places=5)
+    def test_search_case_insensitive_partial(self):
+        self._save_one("Maria Garcia")
+        rows = get_predictions("testuser", search_query="gar")
+        self.assertEqual(len(rows), 1)
 
-    def test_predict_single_proba_shape(self):
-        input_df = self._preprocess()
-        _, proba = predict_single(input_df, self.bundle)
-        if proba is not None:
-            self.assertEqual(len(proba), len(self.bundle["classes"]))
+    def test_multiple_predictions_ordered_desc(self):
+        self._save_one("First")
+        time.sleep(1.1)  # Ensure distinct timestamp second
+        self._save_one("Second")
+        rows = get_predictions("testuser")
+        self.assertEqual(len(rows), 2)
+        # Most recent first
+        self.assertEqual(rows[0]["patient_name"], "Second")
 
-    def test_predict_single_proba_values_in_range(self):
-        input_df = self._preprocess()
-        _, proba = predict_single(input_df, self.bundle)
-        if proba is not None:
-            self.assertTrue(all(0.0 <= p <= 1.0 for p in proba))
+    def test_filter_by_date(self):
+        self._save_one("Future")
+        rows = get_predictions("testuser",
+                               start_date="2020-01-01",
+                               end_date="2099-12-31")
+        self.assertEqual(len(rows), 1)
 
-    # ── preprocess_single_input ───────────────────────────────────────────────
-    def test_preprocess_output_is_dataframe(self):
-        input_df = self._preprocess()
-        self.assertIsInstance(input_df, pd.DataFrame)
-
-    def test_preprocess_output_shape(self):
-        input_df = self._preprocess()
-        self.assertEqual(input_df.shape[0], 1)
-        self.assertEqual(input_df.shape[1], len(self.bundle["features"]))
-
-    def test_preprocess_column_names_match_features(self):
-        input_df = self._preprocess()
-        self.assertListEqual(list(input_df.columns), list(self.bundle["features"]))
-
-    # ── explain_prediction_local (Explainable AI) ─────────────────────────────
-    def test_explain_returns_list(self):
-        input_df = self._preprocess()
-        result = explain_prediction_local(input_df, self.bundle)
-        self.assertIsInstance(result, list)
-
-    def test_explain_length_equals_features(self):
-        input_df = self._preprocess()
-        result = explain_prediction_local(input_df, self.bundle)
-        self.assertEqual(len(result), len(self.bundle["features"]))
-
-    def test_explain_sorted_by_abs_contribution(self):
-        input_df = self._preprocess()
-        result = explain_prediction_local(input_df, self.bundle)
-        vals = [abs(v) for _, v in result]
-        self.assertEqual(vals, sorted(vals, reverse=True))
-
-    def test_explain_each_item_is_tuple(self):
-        input_df = self._preprocess()
-        result = explain_prediction_local(input_df, self.bundle)
-        for item in result:
-            self.assertIsInstance(item, tuple)
-            self.assertEqual(len(item), 2)
-
-    def test_explain_feature_names_are_strings(self):
-        input_df = self._preprocess()
-        result = explain_prediction_local(input_df, self.bundle)
-        for feat, _ in result:
-            self.assertIsInstance(feat, str)
-
-    def test_explain_contribution_values_are_floats(self):
-        input_df = self._preprocess()
-        result = explain_prediction_local(input_df, self.bundle)
-        for _, contrib in result:
-            self.assertIsInstance(contrib, float)
-
-    # ── Model Validation — determinism ────────────────────────────────────────
-    def test_predict_same_input_twice_is_deterministic(self):
-        """Same input must always produce the same prediction (model validation)."""
-        d = _make_sample_input()
-        input_df1 = self._preprocess(d)
-        input_df2 = self._preprocess(d)
-        label1, proba1 = predict_single(input_df1, self.bundle)
-        label2, proba2 = predict_single(input_df2, self.bundle)
-        self.assertEqual(label1, label2)
-        if proba1 is not None and proba2 is not None:
-            np.testing.assert_array_almost_equal(proba1, proba2)
+    def test_confidence_stored_correctly(self):
+        self._save_one(conf=75.25)
+        rows = get_predictions("testuser")
+        self.assertAlmostEqual(rows[0]["confidence"], 75.25, places=1)
 
 
 # ─────────────────────────────────────────────────────────────────────────────

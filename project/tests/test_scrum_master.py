@@ -1,223 +1,233 @@
-# tests/test_team_leader.py
+# tests/test_scrum_master.py
 # ─────────────────────────────────────────────────────────────────────────────
-# TDD — Team Leader Responsibilities
-#   • ML Model Training / Validation
-#   • Data Preprocessing  (BMI formula)
-#   • CKD Prediction      (predict_single, load_model_bundle)
-#   • Explainable AI      (explain_prediction_local)
+# TDD — Scrum Master Responsibilities
+#   • Patient Management (CRUD)
+#   • Appointment Scheduling
+#   • Feedback Module
+#   • Integration Testing
+#   • Workflow Validation
+#   • End-to-End Test Cases
 #
-# Run:  python -m pytest tests/test_team_leader.py -v
+# Run:  python -m pytest tests/test_scrum_master.py -v
 # ─────────────────────────────────────────────────────────────────────────────
 
 import os
 import sys
+import gc
+import tempfile
 import unittest
-import numpy as np
-import pandas as pd
 
 # ── Add project root to path ──────────────────────────────────────────────────
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, BASE_DIR)
 
-from ckd_utils.prediction import load_model_bundle, predict_single, explain_prediction_local
-from ckd_utils.preprocessing import preprocess_single_input
+from auth import (
+    init_db,
+    register_user,
+    create_patient,
+    get_patients,
+    update_patient,
+    delete_patient,
+    schedule_appointment,
+    get_appointments,
+    delete_appointment,
+    submit_feedback,
+    get_all_feedback,
+)
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Shared helpers
 # ─────────────────────────────────────────────────────────────────────────────
 
-MODEL_PATH = os.path.join(BASE_DIR, "model", "kidney_model.pkl")
-MODEL_AVAILABLE = os.path.exists(MODEL_PATH)
-
-
-def _make_sample_input():
-    return {
-        "Age": 45,
-        "Gender": 1,
-        "BMI": 26.5,
-        "Systolic_BP": 120,
-        "Diastolic_BP": 80,
-        "Heart_Rate": 75,
-        "Serum_Creatinine": 1.0,
-        "Blood_Urea_Nitrogen": 15,
-        "eGFR": 90,
-        "Urine_Specific_Gravity": 1.015,
-        "Urine_Albumin": 15,
-        "Urine_Protein": 10,
-        "Albumin_Creatinine_Ratio": 25,
-        "Sodium": 140,
-        "Potassium": 4.0,
-        "Calcium": 9.5,
-        "Phosphorus": 3.5,
-        "Chloride": 100,
-        "Bicarbonate": 24,
-        "Hemoglobin": 14.0,
-        "RBC_Count": 4.5,
-        "WBC_Count": 7000,
-        "Platelet_Count": 250000,
-        "Packed_Cell_Volume": 40,
-        "Blood_Glucose_Random": 100,
-        "Fasting_Glucose": 90,
-        "HbA1c": 5.5,
-        "Cholesterol": 180,
-        "Triglycerides": 120,
-        "Serum_Albumin": 4.0,
-        "Total_Protein": 7.0,
-        "Diabetes": "No",
-        "Hypertension": "No",
-        "Smoking_Status": "No",
-        "Family_History_Kidney": "No",
-    }
+def _make_temp_db():
+    """Return a path to a fresh temporary SQLite database."""
+    fd, path = tempfile.mkstemp(suffix=".db")
+    os.close(fd)
+    return path
 
 
 # ═════════════════════════════════════════════════════════════════════════════
-# 1. Data Preprocessing — BMI Computation
+# Base setup mixin — reused by all test classes
 # ═════════════════════════════════════════════════════════════════════════════
 
-class TestBMI(unittest.TestCase):
-    """Validates the BMI formula used during feature engineering."""
+class _TempDbMixin:
+    """Mixin that sets up and tears down a fresh temp DB per test."""
 
-    def _bmi(self, weight_kg, height_cm):
-        return weight_kg / ((height_cm / 100) ** 2)
+    def setUp(self):
+        import auth as auth_module
+        self.orig_db = auth_module.DB_FILE
+        self.temp_db = _make_temp_db()
+        auth_module.DB_FILE = self.temp_db
+        auth_module.init_db()
+        self.username = "testdoc"
+        register_user(self.username, "doc@example.com", "pass123")
 
-    def test_bmi_normal(self):
-        bmi = self._bmi(70, 175)
-        self.assertAlmostEqual(bmi, 22.86, places=1)
-
-    def test_bmi_obese(self):
-        bmi = self._bmi(100, 170)
-        self.assertGreater(bmi, 30.0)
-
-    def test_bmi_underweight(self):
-        bmi = self._bmi(45, 170)
-        self.assertLess(bmi, 18.5)
-
-    def test_bmi_overweight(self):
-        bmi = self._bmi(80, 170)
-        self.assertGreater(bmi, 25.0)
-        self.assertLess(bmi, 30.0)
-
-    def test_bmi_formula_correctness(self):
-        bmi = self._bmi(60, 160)
-        expected = 60 / (1.6 ** 2)
-        self.assertAlmostEqual(bmi, expected, places=5)
+    def tearDown(self):
+        import auth as auth_module
+        auth_module.DB_FILE = self.orig_db
+        gc.collect()
+        try:
+            os.unlink(self.temp_db)
+        except PermissionError:
+            pass  # Windows file lock fallback
 
 
 # ═════════════════════════════════════════════════════════════════════════════
-# 2. CKD Prediction & Explainable AI (requires trained model)
+# 1. Patient Management — CRUD Integration Tests
 # ═════════════════════════════════════════════════════════════════════════════
 
-@unittest.skipUnless(MODEL_AVAILABLE, "Model file not found – run train_model.py first")
-class TestPrediction(unittest.TestCase):
-    """Tests for model loading, single prediction, preprocessing, and XAI."""
+class TestPatientManagement(_TempDbMixin, unittest.TestCase):
+    """End-to-end Create / Read / Update / Delete workflow for patients."""
 
-    @classmethod
-    def setUpClass(cls):
-        cls.bundle = load_model_bundle(MODEL_PATH)
+    def test_patient_create_returns_positive_id(self):
+        pid = create_patient(self.username, "Alice Smith", 55, "Female",
+                             165.0, 65.0, "No", "Yes", "No", "No")
+        self.assertIsInstance(pid, int)
+        self.assertGreater(pid, 0)
 
-    def _preprocess(self, d=None):
-        if d is None:
-            d = _make_sample_input()
-        return preprocess_single_input(d, self.bundle["encoders"], self.bundle["scaler"])
+    def test_patient_read_after_create(self):
+        create_patient(self.username, "Alice Smith", 55, "Female",
+                       165.0, 65.0, "No", "Yes", "No", "No")
+        patients = get_patients(self.username)
+        self.assertEqual(len(patients), 1)
+        self.assertEqual(patients[0]["name"], "Alice Smith")
+        self.assertEqual(patients[0]["age"], 55)
 
-    # ── load_model_bundle ─────────────────────────────────────────────────────
-    def test_bundle_has_required_keys(self):
-        for key in ("model", "encoders", "scaler", "classes", "features"):
-            self.assertIn(key, self.bundle)
+    def test_patient_update(self):
+        pid = create_patient(self.username, "Alice Smith", 55, "Female",
+                             165.0, 65.0, "No", "Yes", "No", "No")
+        update_patient(self.username, pid, "Alice Doe", 56, "Female",
+                       165.0, 64.0, "Yes", "Yes", "No", "No")
+        patients = get_patients(self.username)
+        self.assertEqual(patients[0]["name"], "Alice Doe")
+        self.assertEqual(patients[0]["age"], 56)
+        self.assertEqual(patients[0]["diabetes"], "Yes")
 
-    def test_classes_is_list(self):
-        self.assertIsInstance(self.bundle["classes"], (list, np.ndarray))
+    def test_patient_delete(self):
+        pid = create_patient(self.username, "Alice Smith", 55, "Female",
+                             165.0, 65.0, "No", "Yes", "No", "No")
+        delete_patient(self.username, pid)
+        patients = get_patients(self.username)
+        self.assertEqual(len(patients), 0)
 
-    def test_features_count(self):
-        """Model bundle must expose exactly 35 features."""
-        self.assertEqual(len(self.bundle["features"]), 35)
+    def test_patient_crud_full_workflow(self):
+        """End-to-end: create → read → update → delete in one workflow."""
+        # Create
+        pid = create_patient(self.username, "Bob Kumar", 42, "Male",
+                             175.0, 80.0, "No", "No", "Yes", "No")
+        self.assertGreater(pid, 0)
 
-    # ── predict_single ────────────────────────────────────────────────────────
-    def test_predict_single_returns_label_and_proba(self):
-        input_df = self._preprocess()
-        label, proba = predict_single(input_df, self.bundle)
-        self.assertIsInstance(label, str)
-        self.assertIn(label, list(self.bundle["classes"]))
+        # Read
+        patients = get_patients(self.username)
+        self.assertEqual(len(patients), 1)
+        self.assertEqual(patients[0]["name"], "Bob Kumar")
 
-    def test_predict_single_proba_sums_to_one(self):
-        input_df = self._preprocess()
-        _, proba = predict_single(input_df, self.bundle)
-        if proba is not None:
-            self.assertAlmostEqual(float(proba.sum()), 1.0, places=5)
+        # Update
+        update_patient(self.username, pid, "Bob Kumar", 43, "Male",
+                       175.0, 78.0, "No", "No", "No", "No")
+        updated = get_patients(self.username)
+        self.assertEqual(updated[0]["age"], 43)
+        self.assertEqual(updated[0]["smoking_status"], "No")
 
-    def test_predict_single_proba_shape(self):
-        input_df = self._preprocess()
-        _, proba = predict_single(input_df, self.bundle)
-        if proba is not None:
-            self.assertEqual(len(proba), len(self.bundle["classes"]))
+        # Delete
+        delete_patient(self.username, pid)
+        self.assertEqual(len(get_patients(self.username)), 0)
 
-    def test_predict_single_proba_values_in_range(self):
-        input_df = self._preprocess()
-        _, proba = predict_single(input_df, self.bundle)
-        if proba is not None:
-            self.assertTrue(all(0.0 <= p <= 1.0 for p in proba))
+    def test_patients_scoped_to_user(self):
+        """Patients created by one user must not appear for another."""
+        create_patient(self.username, "Private Patient", 30, "Male",
+                       170.0, 70.0, "No", "No", "No", "No")
+        other_patients = get_patients("other_doctor")
+        self.assertEqual(len(other_patients), 0)
 
-    # ── preprocess_single_input ───────────────────────────────────────────────
-    def test_preprocess_output_is_dataframe(self):
-        input_df = self._preprocess()
-        self.assertIsInstance(input_df, pd.DataFrame)
 
-    def test_preprocess_output_shape(self):
-        input_df = self._preprocess()
-        self.assertEqual(input_df.shape[0], 1)
-        self.assertEqual(input_df.shape[1], len(self.bundle["features"]))
+# ═════════════════════════════════════════════════════════════════════════════
+# 2. Appointment Scheduling — Workflow Validation
+# ═════════════════════════════════════════════════════════════════════════════
 
-    def test_preprocess_column_names_match_features(self):
-        input_df = self._preprocess()
-        self.assertListEqual(list(input_df.columns), list(self.bundle["features"]))
+class TestAppointments(_TempDbMixin, unittest.TestCase):
+    """Tests for scheduling, retrieval, and deletion of appointments."""
 
-    # ── explain_prediction_local (Explainable AI) ─────────────────────────────
-    def test_explain_returns_list(self):
-        input_df = self._preprocess()
-        result = explain_prediction_local(input_df, self.bundle)
-        self.assertIsInstance(result, list)
+    def test_schedule_appointment_returns_positive_id(self):
+        aid = schedule_appointment(self.username, "Bob Lee",
+                                   "2024-05-10 14:00:00", "Routine checkup")
+        self.assertIsInstance(aid, int)
+        self.assertGreater(aid, 0)
 
-    def test_explain_length_equals_features(self):
-        input_df = self._preprocess()
-        result = explain_prediction_local(input_df, self.bundle)
-        self.assertEqual(len(result), len(self.bundle["features"]))
+    def test_scheduled_appointment_is_retrievable(self):
+        schedule_appointment(self.username, "Bob Lee",
+                             "2024-05-10 14:00:00", "Routine checkup")
+        appts = get_appointments(self.username)
+        self.assertEqual(len(appts), 1)
+        self.assertEqual(appts[0]["patient_name"], "Bob Lee")
+        self.assertEqual(appts[0]["notes"], "Routine checkup")
 
-    def test_explain_sorted_by_abs_contribution(self):
-        input_df = self._preprocess()
-        result = explain_prediction_local(input_df, self.bundle)
-        vals = [abs(v) for _, v in result]
-        self.assertEqual(vals, sorted(vals, reverse=True))
+    def test_delete_appointment(self):
+        aid = schedule_appointment(self.username, "Bob Lee",
+                                   "2024-05-10 14:00:00", "Routine checkup")
+        delete_appointment(self.username, aid)
+        appts = get_appointments(self.username)
+        self.assertEqual(len(appts), 0)
 
-    def test_explain_each_item_is_tuple(self):
-        input_df = self._preprocess()
-        result = explain_prediction_local(input_df, self.bundle)
-        for item in result:
-            self.assertIsInstance(item, tuple)
-            self.assertEqual(len(item), 2)
+    def test_multiple_appointments_all_retrieved(self):
+        schedule_appointment(self.username, "Patient A",
+                             "2024-06-01 09:00:00", "Follow-up")
+        schedule_appointment(self.username, "Patient B",
+                             "2024-06-02 10:00:00", "Initial consult")
+        appts = get_appointments(self.username)
+        self.assertEqual(len(appts), 2)
 
-    def test_explain_feature_names_are_strings(self):
-        input_df = self._preprocess()
-        result = explain_prediction_local(input_df, self.bundle)
-        for feat, _ in result:
-            self.assertIsInstance(feat, str)
+    def test_appointments_scoped_to_user(self):
+        """Appointments must be isolated per user."""
+        schedule_appointment(self.username, "Patient X",
+                             "2024-07-01 08:00:00", "Check-up")
+        other_appts = get_appointments("other_doctor")
+        self.assertEqual(len(other_appts), 0)
 
-    def test_explain_contribution_values_are_floats(self):
-        input_df = self._preprocess()
-        result = explain_prediction_local(input_df, self.bundle)
-        for _, contrib in result:
-            self.assertIsInstance(contrib, float)
+    def test_appointment_full_workflow(self):
+        """End-to-end: schedule → retrieve → delete."""
+        aid = schedule_appointment(self.username, "Maria Santos",
+                                   "2025-01-15 11:30:00", "Kidney biopsy follow-up")
+        self.assertGreater(aid, 0)
 
-    # ── Model Validation — determinism ────────────────────────────────────────
-    def test_predict_same_input_twice_is_deterministic(self):
-        """Same input must always produce the same prediction (model validation)."""
-        d = _make_sample_input()
-        input_df1 = self._preprocess(d)
-        input_df2 = self._preprocess(d)
-        label1, proba1 = predict_single(input_df1, self.bundle)
-        label2, proba2 = predict_single(input_df2, self.bundle)
-        self.assertEqual(label1, label2)
-        if proba1 is not None and proba2 is not None:
-            np.testing.assert_array_almost_equal(proba1, proba2)
+        appts = get_appointments(self.username)
+        self.assertEqual(appts[0]["patient_name"], "Maria Santos")
+        self.assertIn("biopsy", appts[0]["notes"].lower())
+
+        delete_appointment(self.username, aid)
+        self.assertEqual(len(get_appointments(self.username)), 0)
+
+
+# ═════════════════════════════════════════════════════════════════════════════
+# 3. Feedback Module — Integration Tests
+# ═════════════════════════════════════════════════════════════════════════════
+
+class TestFeedback(_TempDbMixin, unittest.TestCase):
+    """Tests for the patient/user feedback submission and retrieval."""
+
+    def test_submit_feedback_and_retrieve(self):
+        submit_feedback(self.username, 5, "Perfect prediction", 1)
+        fb = get_all_feedback()
+        self.assertEqual(len(fb), 1)
+        self.assertEqual(fb[0]["rating"], 5)
+        self.assertEqual(fb[0]["comments"], "Perfect prediction")
+
+    def test_feedback_rating_stored_correctly(self):
+        submit_feedback(self.username, 3, "Average results", None)
+        fb = get_all_feedback()
+        self.assertEqual(fb[0]["rating"], 3)
+
+    def test_multiple_feedback_entries(self):
+        submit_feedback(self.username, 4, "Good", 1)
+        submit_feedback(self.username, 2, "Needs improvement", 2)
+        fb = get_all_feedback()
+        self.assertGreaterEqual(len(fb), 2)
+
+    def test_feedback_without_prediction_id(self):
+        """Feedback should be submittable with no linked prediction (prediction_id=None)."""
+        submit_feedback(self.username, 5, "General feedback", None)
+        fb = get_all_feedback()
+        self.assertTrue(any(f["comments"] == "General feedback" for f in fb))
 
 
 # ─────────────────────────────────────────────────────────────────────────────
