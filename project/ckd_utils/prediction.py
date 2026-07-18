@@ -1,6 +1,6 @@
 # utils/prediction.py
 # ─────────────────────────────────────────────────────────────────
-# Handles model loading and single/batch prediction logic.
+# Handles model loading and single/batch prediction logic
 # ─────────────────────────────────────────────────────────────────
 
 import joblib
