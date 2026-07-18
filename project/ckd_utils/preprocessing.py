@@ -1,6 +1,6 @@
 # utils/preprocessing.py
 # ─────────────────────────────────────────────────────────────────
-# Handles all data loading, cleaning, encoding, and splitting tasks
+# Handles all data loading, cleaning, encoding, and splitting tasks.
 # ─────────────────────────────────────────────────────────────────
 
 import pandas as pd
